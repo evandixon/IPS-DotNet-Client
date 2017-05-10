@@ -1,9 +1,11 @@
 ﻿using IPSClient.Objects;
+using IPSClient.Objects.Downloads;
 using IPSClient.Objects.System;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -36,15 +38,50 @@ namespace IPSClient
             return output.ToString();
         }
 
+        internal Dictionary<string, string> BuildParameterDictionary(object parameterObject)
+        {
+            var d = new Dictionary<string, string>();
+            foreach (var item in parameterObject.GetType().GetTypeInfo().DeclaredProperties)
+            {
+                var t = item.PropertyType;
+                var v = item.GetValue(parameterObject);
+                if (v != null)
+                {
+                    if (t == typeof(string) || t == typeof(int?))
+                    {
+                        d.Add(item.Name, item.GetValue(parameterObject).ToString());
+                    }
+                    else if (t == typeof(bool?))
+                    {
+                        if ((v as bool?).Value)
+                        {
+                            // True
+                            d.Add(item.Name, (1).ToString());
+                        }
+                        else
+                        {
+                            // False
+                            d.Add(item.Name, (0).ToString());
+                        }
+                    }
+                    else
+                    {
+                        throw new NotSupportedException(string.Format("Unsupported property type: {0} on property {1}", t.Name, item.Name));
+                    }
+                }                
+            }
+            return d;
+        }
+
         /// <summary>
         /// 
         /// </summary>
-        /// <typeparam name="T">Type of the response</typeparam>
         /// <param name="endpoint"></param>
         /// <param name="verb"></param>
         /// <param name="parameters">The request parameters, or null if there are no parameters</param>
+        /// <param name="type">Type of the response</param>
         /// <returns></returns>
-        private async Task<T> SendRequest<T>(string endpoint, HttpMethod verb, Dictionary<string, string> parameters)
+        internal async Task<object> SendRequest(string endpoint, HttpMethod verb, Dictionary<string, string> parameters, Type type)
         {
             if (parameters == null)
             {
@@ -59,25 +96,25 @@ namespace IPSClient
 
                 if (verb == HttpMethod.Get)
                 {
-                    response = await client.GetAsync(requestUrl + "?" + new StringContent(BuildParameterString(parameters)));
+                    response = await client.GetAsync(requestUrl + "?" + BuildParameterString(parameters)).ConfigureAwait(false);
                 }
                 else if (verb == HttpMethod.Post)
                 {
-                    response = await client.PostAsync(requestUrl, new StringContent(BuildParameterString(parameters)));
+                    response = await client.PostAsync(requestUrl, new StringContent(BuildParameterString(parameters))).ConfigureAwait(false);
                 }
                 else if (verb == HttpMethod.Delete)
                 {
-                    response = await client.DeleteAsync(requestUrl);
+                    response = await client.DeleteAsync(requestUrl).ConfigureAwait(false);
                 }
                 else
                 {
                     throw new ArgumentException("Verb is not supported: " + verb.Method + ". Must be GET, POST, or DELETE.", nameof(verb));
                 }
 
-                var body = await response.Content.ReadAsStringAsync();
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {
-                    return JsonConvert.DeserializeObject<T>(body);
+                    return JsonConvert.DeserializeObject(body, type);
                 }
                 else
                 {
@@ -95,9 +132,38 @@ namespace IPSClient
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T">Type of the response</typeparam>
+        /// <param name="endpoint"></param>
+        /// <param name="verb"></param>
+        /// <param name="parameters">The request parameters, or null if there are no parameters</param>
+        /// <returns></returns>
+        internal async Task<T> SendRequest<T>(string endpoint, HttpMethod verb, Dictionary<string, string> parameters) where T : class
+        {
+            return await SendRequest(endpoint, verb, parameters, typeof(T)) as T;
+        }
+
         public async Task<HelloResponse> Hello()
         {
             return await SendRequest<HelloResponse>("core/hello", HttpMethod.Get, null);
         }
+
+        #region Downloads
+        public async Task<PagedResultSet<GetFileResponse>> GetFiles(GetFilesRequest request)
+        {
+            var response = await SendRequest<GetFilesResponse>("downloads/files", HttpMethod.Get, BuildParameterDictionary(request));
+            return new PagedResultSet<GetFileResponse>(this, "downloads/files", HttpMethod.Get, request, response);
+
+        }
+        public async Task<GetFilesResponse> GetFile(int id, int? version = null)
+        {
+            return await SendRequest<GetFilesResponse>(
+                "downloads/files/" + id.ToString(),
+                HttpMethod.Get,
+                version.HasValue ? new Dictionary<string, string> { { "version", version.Value.ToString() } } : null);
+        }
+        #endregion
     }
 }
