@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard1.3</TargetFramework>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <VersionSuffix>dev</VersionSuffix>
+    <Description>API CLient for Invision Power Suite 4.1.19.3</Description>
   </PropertyGroup>
 
   <ItemGroup>
