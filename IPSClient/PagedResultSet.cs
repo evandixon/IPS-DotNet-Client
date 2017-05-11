@@ -16,26 +16,14 @@ namespace IPSClient
     public class PagedResultSet<T> : ICollection, IEnumerable<T>, IEnumerator<T>
         where T : class
     {
-        public PagedResultSet(ApiClient client, string endpoint, HttpMethod verb, IPagedRequest request, IPagedResultResponse<T> response)
+        public PagedResultSet(ApiClient client, string endpoint, HttpMethod verb, IPagedRequest request, Type responseType)
         {
             _client = client;
             _endpoint = endpoint;
             _verb = verb;
             _request = request;
-            _pageSize = response.perPage;
-            _totalSize = response.totalResults;
-            _totalPages = response.totalPages;
-            _responseType = response.GetType();
-
-            CurrentIndex = (response.page - 1) * response.perPage;
-
-            // Add results to proper index
-            Results = new List<T>(CurrentIndex + response.results.Count);
-            for (int i = 0; i < CurrentIndex; i++)
-            {
-                Results.Add(null);
-            }
-            Results.AddRange(response.results);
+            _responseType = responseType;
+            CurrentIndex = -1;
         }
 
         private ApiClient _client;
@@ -43,22 +31,53 @@ namespace IPSClient
         private HttpMethod _verb;
         private IPagedRequest _request;
         private Type _responseType;
-        private int _pageSize;
-        private int _totalSize;
-        private int _totalPages;
+        private int? _pageSize;
+        private int? _totalSize;
+        private int? _totalPages;
 
         private int CurrentIndex { get; set; }
         private List<T> Results { get; set; }
+
+        private int PageSize
+        {
+            get
+            {
+                if (_pageSize.HasValue)
+                {
+                    return _pageSize.Value;
+                }
+                else
+                {
+                    RequestPage(0);
+                    return _pageSize.Value;
+                }
+            }
+        }
 
         private void RequestPage(int pageIndex)
         {
             _request.page = pageIndex + 1;
             var response = _client.SendRequest(_endpoint, _verb, _client.BuildParameterDictionary(_request), _responseType).Result as IPagedResultResponse<T>;
+
+            // Check to see if this is the first request
+            if (!_pageSize.HasValue)
+            {
+                _pageSize = response.perPage;
+                _totalSize = response.totalResults;
+                _totalPages = response.totalPages;
+                _responseType = response.GetType();
+
+                CurrentIndex = (response.page - 1) * response.perPage;
+                Results = new List<T>(CurrentIndex + response.results.Count);
+            }
+
+            // Check to see if the enumeration changed
             if (response.totalResults != _totalSize)
             {
                 throw new InvalidOperationException("The collection was modified after the enumerator was created.");
             }
 
+            // Store the results
             int start = (response.page - 1) * response.perPage;
             for (int i = 0; i < response.results.Count; i++)
             {
@@ -83,17 +102,31 @@ namespace IPSClient
         #region IEnumerable Support
         public IEnumerator<T> GetEnumerator()
         {
+            Reset();
             return this;
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return this;
+            return GetEnumerator();
         }
         #endregion
 
         #region IEnumerator Support
-        public T Current => Results[CurrentIndex];
+        public T Current
+        {
+            get
+            {
+                // Request additional data if necessary
+                if (Results.Count <= CurrentIndex || Results[CurrentIndex] == null)
+                {
+                    RequestPage((int)Math.Floor((double)CurrentIndex / PageSize));
+                }
+
+                // Return the current item
+                return Results[CurrentIndex];
+            }
+        }
 
         object IEnumerator.Current => Current;
 
@@ -104,22 +137,8 @@ namespace IPSClient
 
         public bool MoveNext()
         {
-            if (CurrentIndex + 1 < _totalSize)
-            {
-                // Advance position
-                CurrentIndex += 1;
-
-                // Request additional data if necessary
-                if (Results.Count <= CurrentIndex || Current == null)
-                {
-                    RequestPage((int)Math.Floor((double)CurrentIndex / _pageSize));
-                }
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            CurrentIndex += 1;
+            return (CurrentIndex < Count && Current != null);
         }
 
         public void Reset()
@@ -129,7 +148,22 @@ namespace IPSClient
         #endregion
 
         #region ICollection Support
-        public int Count => _totalSize;
+        public int Count
+        {
+            get
+            {
+                if (_totalSize.HasValue)
+                {
+                    return _totalSize.Value;
+                }
+                else
+                {
+                    RequestPage(0);
+                    return _totalSize.Value;
+                }
+            }
+        }
+
 
         public bool IsSynchronized => false;
 
@@ -152,7 +186,7 @@ namespace IPSClient
 
             var current = CurrentIndex;
             CurrentIndex = 0;
-            for (int i = index;i<_totalSize;i++)
+            for (int i = index; i < _totalSize; i++)
             {
                 array.SetValue(Current, i);
                 if (!MoveNext())

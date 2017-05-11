@@ -153,8 +153,7 @@ namespace IPSClient
         #region Downloads
         public async Task<PagedResultSet<GetFileResponse>> GetFiles(GetFilesRequest request)
         {
-            var response = await SendRequest<GetFilesResponse>("downloads/files", HttpMethod.Get, BuildParameterDictionary(request));
-            return new PagedResultSet<GetFileResponse>(this, "downloads/files", HttpMethod.Get, request, response);
+            return new PagedResultSet<GetFileResponse>(this, "downloads/files", HttpMethod.Get, request, typeof(GetFilesResponse));
 
         }
         public async Task<GetFilesResponse> GetFile(int id, int? version = null)
