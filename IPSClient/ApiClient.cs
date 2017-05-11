@@ -68,7 +68,7 @@ namespace IPSClient
                     {
                         throw new NotSupportedException(string.Format("Unsupported property type: {0} on property {1}", t.Name, item.Name));
                     }
-                }                
+                }
             }
             return d;
         }
@@ -127,7 +127,7 @@ namespace IPSClient
                         // Could not read response as error object
                         response.EnsureSuccessStatusCode();
                         throw new Exception($"Api call failed with status code '{response.StatusCode}' and response.EnsureSuccessStatusCode should have thrown.");
-                    }                    
+                    }
                 }
             }
         }
@@ -151,11 +151,11 @@ namespace IPSClient
         }
 
         #region Downloads
-        public async Task<PagedResultSet<GetFileResponse>> GetFiles(GetFilesRequest request)
+        public PagedResultSet<GetFileResponse> GetFiles(GetFilesRequest request)
         {
             return new PagedResultSet<GetFileResponse>(this, "downloads/files", HttpMethod.Get, request, typeof(GetFilesResponse));
-
         }
+
         public async Task<GetFilesResponse> GetFile(int id, int? version = null)
         {
             return await SendRequest<GetFilesResponse>(
