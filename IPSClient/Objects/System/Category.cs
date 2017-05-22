@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace IPSClient.Objects.Downloads
+namespace IPSClient.Objects.System
 {
     public class Category
     {

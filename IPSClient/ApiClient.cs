@@ -1,5 +1,6 @@
 ﻿using IPSClient.Objects;
 using IPSClient.Objects.Downloads;
+using IPSClient.Objects.Pages;
 using IPSClient.Objects.System;
 using Newtonsoft.Json;
 using System;
@@ -120,7 +121,18 @@ namespace IPSClient
                 {
                     if (!string.IsNullOrEmpty(body) && body[0] == '{')
                     {
-                        throw new ApiException(JsonConvert.DeserializeObject<ExceptionResponse>(body));
+                        var exception = JsonConvert.DeserializeObject<ExceptionResponse>(body);
+                        switch (exception.errorMessage)
+                        {
+                            case "INVALID_ID":
+                                throw new InvalidIdException(exception);
+                            case "INVALID_DATABASE":
+                                throw new DatabaseNotFoundException(exception);
+                            case "INVALID_VERSION":
+                                throw new InvalidVersionException(exception);
+                            default:
+                                throw new ApiException(exception);
+                        }                        
                     }
                     else
                     {
@@ -151,17 +163,32 @@ namespace IPSClient
         }
 
         #region Downloads
-        public PagedResultSet<GetFileResponse> GetFiles(GetFilesRequest request)
+        public PagedResultSet<GetFileResponse> GetFiles(GetContentItemsRequest request)
         {
             return new PagedResultSet<GetFileResponse>(this, "downloads/files", HttpMethod.Get, request, typeof(GetFilesResponse));
         }
 
-        public async Task<GetFilesResponse> GetFile(int id, int? version = null)
+        public async Task<GetFileResponse> GetFile(int id, int? version = null)
         {
-            return await SendRequest<GetFilesResponse>(
-                "downloads/files/" + id.ToString(),
+            return await SendRequest<GetFileResponse>(
+                $"downloads/files/{id.ToString()}",
                 HttpMethod.Get,
                 version.HasValue ? new Dictionary<string, string> { { "version", version.Value.ToString() } } : null);
+        }
+        #endregion
+
+        #region Pages
+        public PagedResultSet<GetPageResponse> GetRecords(int databaseId, GetContentItemsRequest request)
+        {
+            return new PagedResultSet<GetPageResponse>(this, $"cms/records/{databaseId.ToString()}", HttpMethod.Get, request, typeof(GetPagesResponse));
+        }
+
+        public async Task<GetPageResponse> GetRecord(int databaseId, int recordId)
+        {
+            return await SendRequest<GetPageResponse>(
+                $"cms/records/{databaseId.ToString()}/{recordId.ToString()}",
+                HttpMethod.Get,
+                null);
         }
         #endregion
     }
