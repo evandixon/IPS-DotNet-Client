@@ -190,6 +190,22 @@ namespace IPSClient
                 HttpMethod.Get,
                 null);
         }
+
+        public async Task<GetPageResponse> CreatePage(int databaseId, CreatePageRequest request)
+        {
+            return await SendRequest<GetPageResponse>(
+                $"cms/records/{databaseId.ToString()}",
+                HttpMethod.Post,
+                null);
+        }
+
+        public async Task<GetPageResponse> EditPage(int databaseId, int recordId, CreatePageRequest request)
+        {
+            return await SendRequest<GetPageResponse>(
+                $"cms/records/{databaseId.ToString()}/{recordId.ToString()}",
+                HttpMethod.Post,
+                null);
+        }
         #endregion
     }
 }
