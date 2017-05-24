@@ -54,7 +54,7 @@ namespace IPSClient
         private void RequestPage(int pageIndex)
         {
             _request.page = pageIndex + 1;
-            var response = _client.SendRequest(_endpoint, _verb, _client.BuildParameterDictionary(_request), typeof(PagedResponse<T>)).Result as IPagedResultResponse<T>;
+            var response = _client.SendRequest(_endpoint, _verb, _client.BuildParameterDictionary(_request), typeof(PagedResponse<T>)).Result as PagedResponse<T>;
 
             // Check to see if this is the first request
             if (!_pageSize.HasValue)
