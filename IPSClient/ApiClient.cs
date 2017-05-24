@@ -1,5 +1,6 @@
 ﻿using IPSClient.Objects;
 using IPSClient.Objects.Downloads;
+using IPSClient.Objects.Forums;
 using IPSClient.Objects.Pages;
 using IPSClient.Objects.System;
 using Newtonsoft.Json;
@@ -162,10 +163,17 @@ namespace IPSClient
             return await SendRequest<HelloResponse>("core/hello", HttpMethod.Get, null);
         }
 
+        #region Forums
+        public PagedResultSet<Forum> GetForums(GetContentItemsRequest request)
+        {
+            return new PagedResultSet<Forum>(this, "forums/forums", HttpMethod.Get, request);
+        }
+        #endregion
+
         #region Downloads
         public PagedResultSet<GetFileResponse> GetFiles(GetContentItemsRequest request)
         {
-            return new PagedResultSet<GetFileResponse>(this, "downloads/files", HttpMethod.Get, request, typeof(GetFilesResponse));
+            return new PagedResultSet<GetFileResponse>(this, "downloads/files", HttpMethod.Get, request);
         }
 
         public async Task<GetFileResponse> GetFile(int id, int? version = null)
@@ -180,7 +188,7 @@ namespace IPSClient
         #region Pages
         public PagedResultSet<GetPageResponse> GetRecords(int databaseId, GetContentItemsRequest request)
         {
-            return new PagedResultSet<GetPageResponse>(this, $"cms/records/{databaseId.ToString()}", HttpMethod.Get, request, typeof(GetPagesResponse));
+            return new PagedResultSet<GetPageResponse>(this, $"cms/records/{databaseId.ToString()}", HttpMethod.Get, request);
         }
 
         public async Task<GetPageResponse> GetRecord(int databaseId, int recordId)

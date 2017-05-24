@@ -11,18 +11,16 @@ namespace IPSClient
     /// <summary>
     /// 
     /// </summary>
-    /// <typeparam name="R">The type of the response</typeparam>
     /// <typeparam name="T">The type of each item in the response</typeparam>
     public class PagedResultSet<T> : ICollection, IEnumerable<T>, IEnumerator<T>
         where T : class
     {
-        public PagedResultSet(ApiClient client, string endpoint, HttpMethod verb, IPagedRequest request, Type responseType)
+        public PagedResultSet(ApiClient client, string endpoint, HttpMethod verb, IPagedRequest request)
         {
             _client = client;
             _endpoint = endpoint;
             _verb = verb;
             _request = request;
-            _responseType = responseType;
             CurrentIndex = -1;
         }
 
@@ -30,7 +28,6 @@ namespace IPSClient
         private string _endpoint;
         private HttpMethod _verb;
         private IPagedRequest _request;
-        private Type _responseType;
         private int? _pageSize;
         private int? _totalSize;
         private int? _totalPages;
@@ -57,7 +54,7 @@ namespace IPSClient
         private void RequestPage(int pageIndex)
         {
             _request.page = pageIndex + 1;
-            var response = _client.SendRequest(_endpoint, _verb, _client.BuildParameterDictionary(_request), _responseType).Result as IPagedResultResponse<T>;
+            var response = _client.SendRequest(_endpoint, _verb, _client.BuildParameterDictionary(_request), typeof(PagedResponse<T>)).Result as IPagedResultResponse<T>;
 
             // Check to see if this is the first request
             if (!_pageSize.HasValue)
@@ -65,7 +62,6 @@ namespace IPSClient
                 _pageSize = response.perPage;
                 _totalSize = response.totalResults;
                 _totalPages = response.totalPages;
-                _responseType = response.GetType();
 
                 CurrentIndex = (response.page - 1) * response.perPage;
                 Results = new List<T>(CurrentIndex + response.results.Count);
