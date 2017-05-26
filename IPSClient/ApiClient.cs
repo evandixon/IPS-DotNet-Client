@@ -131,9 +131,19 @@ namespace IPSClient
                                 throw new DatabaseNotFoundException(exception);
                             case "INVALID_VERSION":
                                 throw new InvalidVersionException(exception);
+                            case "USERNAME_EXISTS":
+                                throw new UsernameExistsException(exception);
+                            case "EMAIL_EXISTS":
+                                throw new EmailExistsException(exception);
+                            case "INVALID_GROUP":
+                                throw new InvalidGroupException(exception);
+                            case "NO_USERNAME_OR_EMAIL":
+                                throw new NoUsernameOrEmailException(exception);
+                            case "NO_PASSWORD":
+                                throw new NoPasswordException(exception);
                             default:
                                 throw new ApiException(exception);
-                        }                        
+                        }
                     }
                     else
                     {
@@ -158,30 +168,182 @@ namespace IPSClient
             return await SendRequest(endpoint, verb, parameters, typeof(T)) as T;
         }
 
+        #region System
+
+        /// <summary>
+        /// Get basic information about the community
+        /// </summary>
         public async Task<HelloResponse> Hello()
         {
             return await SendRequest<HelloResponse>("core/hello", HttpMethod.Get, null);
         }
 
+        #region Groups
+
+        /// <summary>
+        /// Get list of groups
+        /// </summary>
+        public PagedResultSet<Group> GetGroups()
+        {
+            return new PagedResultSet<Group>(this, "core/groups", HttpMethod.Get, new SimplePagedRequest(0));
+        }
+
+        /// <summary>
+        /// Get information about a specific group
+        /// </summary>
+        /// <param name="groupID">ID of the group</param>
+        /// <exception cref="InvalidIdException">Thrown if the group ID does not exist</exception>
+        public async Task<Group> GetGroup(int groupID)
+        {
+            return await SendRequest<Group>(
+                $"core/groups/{groupID.ToString()}",
+                HttpMethod.Get,
+                null);
+        }
+
+        /// <summary>
+        /// Deletes a group
+        /// </summary>
+        /// <param name="groupId">ID of the group</param>
+        /// <exception cref="InvalidIdException">Thrown if the group ID does not exist</exception>
+        public async Task DeleteGroup(int groupId)
+        {
+            await SendRequest<Group>(
+                $"core/groups/{groupId.ToString()}",
+                HttpMethod.Delete,
+                null);
+        }
+        #endregion
+
+        #region Members
+
+        /// <summary>
+        /// Get list of members
+        /// </summary>
+        public PagedResultSet<Member> GetMembers(GetMembersRequest request)
+        {
+            return new PagedResultSet<Member>(this, "core/members", HttpMethod.Get, request);
+        }
+
+        /// <summary>
+        /// Get information about a specific member
+        /// </summary>
+        /// <param name="memberID">ID of the member</param>
+        /// <exception cref="InvalidIdException">Thrown if the member ID does not exist</exception>
+        public async Task<Member> GetMember(int memberID)
+        {
+            return await SendRequest<Member>(
+                $"core/members/{memberID.ToString()}",
+                HttpMethod.Get,
+                null);
+        }
+
+        /// <summary>
+        /// Create a member
+        /// </summary>
+        /// <param name="request">Request for the call</param>
+        /// <exception cref="UsernameExistsException">Thrown when the username provided is already in use</exception>
+        /// <exception cref="EmailExistsException">Thrown when the email address provided is already in use</exception>
+        /// <exception cref="InvalidGroupException">Thrown when the group ID provided is not valid</exception>
+        /// <exception cref="NoUsernameOrEmailException">Thrown when no username or email address was provided for the account</exception>
+        /// <exception cref="NoPasswordException">Thrown when no password was provided for the account</exception>
+        public async Task<Member> CreateMember(CreateMemberRequest request)
+        {
+            return await SendRequest<Member>(
+                $"core/members",
+                HttpMethod.Post,
+                BuildParameterDictionary(request));
+        }
+
+        /// <summary>
+        /// Edit a member
+        /// </summary>
+        /// <param name="memberID">ID of the member</param>
+        /// <param name="request">Request for the call</param>
+        /// <exception cref="InvalidIdException">Thrown when the member ID does not exist</exception>
+        /// <exception cref="UsernameExistsException">Thrown when the username provided is already in use</exception>
+        /// <exception cref="EmailExistsException">Thrown when the email address provided is already in use</exception>
+        public async Task<Member> EditMember(int memberID, CreateMemberRequest request)
+        {
+            return await SendRequest<Member>(
+                $"core/members/{memberID.ToString()}",
+                HttpMethod.Post,
+                BuildParameterDictionary(request));
+        }
+
+        /// <summary>
+        /// Deletes a member
+        /// </summary>
+        /// <param name="memberID">ID of the member to delete</param>
+        /// <exception cref="InvalidIdException">Thrown when the member ID does not exist</exception>
+        public async Task DeleteMember(int memberID)
+        {
+            await SendRequest<object>(
+                $"core/members/{memberID.ToString()}",
+                HttpMethod.Delete,
+                null);
+        }
+
+        #endregion
+
+        #endregion
+
+        #region Downloads
+
+        #region Categories
+
+        /// <summary>
+        /// Get a list of download categories
+        /// </summary>
+        public PagedResultSet<Category> GetDownloadCategories()
+        {
+            return new PagedResultSet<Category>(this, "downloads/category", HttpMethod.Get, new SimplePagedRequest(0));
+        }
+
+        /// <summary>
+        /// Get a specific category
+        /// </summary>
+        /// <param name="categoryId">ID of the category</param>
+        public async Task<Category> GetDownloadCategory(int categoryId)
+        {
+            return await SendRequest<Category>(
+                $"downloads/category/{categoryId.ToString()}",
+                HttpMethod.Get,
+                null);
+        }
+
+        #endregion
+
+        #region Files
+        /// <summary>
+        /// Get list of files
+        /// </summary>
+        public PagedResultSet<File> GetFiles(GetContentItemsRequest request)
+        {
+            return new PagedResultSet<File>(this, "downloads/files", HttpMethod.Get, request);
+        }
+
+        /// <summary>
+        /// View information about a specific file
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="version">If specified, will show a previous version of a file</param>
+        public async Task<File> GetFile(int id, int? version = null)
+        {
+            return await SendRequest<File>(
+                $"downloads/files/{id.ToString()}",
+                HttpMethod.Get,
+                version.HasValue ? new Dictionary<string, string> { { "version", version.Value.ToString() } } : null);
+        }
+
+        #endregion
+
+        #endregion
+
         #region Forums
         public PagedResultSet<Forum> GetForums(GetContentItemsRequest request)
         {
             return new PagedResultSet<Forum>(this, "forums/forums", HttpMethod.Get, request);
-        }
-        #endregion
-
-        #region Downloads
-        public PagedResultSet<GetFileResponse> GetFiles(GetContentItemsRequest request)
-        {
-            return new PagedResultSet<GetFileResponse>(this, "downloads/files", HttpMethod.Get, request);
-        }
-
-        public async Task<GetFileResponse> GetFile(int id, int? version = null)
-        {
-            return await SendRequest<GetFileResponse>(
-                $"downloads/files/{id.ToString()}",
-                HttpMethod.Get,
-                version.HasValue ? new Dictionary<string, string> { { "version", version.Value.ToString() } } : null);
         }
         #endregion
 
