@@ -10,7 +10,7 @@ namespace IPSClient.Objects.Pages
         public int id { get; set; }
         public string title { get; set; }
         public Category category { get; set; }
-        public object fields { get; set; }
+        public Dictionary<string, string> fields { get; set; }
         public Member author { get; set; }
         public DateTime date { get; set; }
         public string description { get; set; }
