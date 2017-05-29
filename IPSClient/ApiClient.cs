@@ -5,7 +5,9 @@ using IPSClient.Objects.Pages;
 using IPSClient.Objects.System;
 using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
@@ -43,13 +45,13 @@ namespace IPSClient
         internal Dictionary<string, string> BuildParameterDictionary(object parameterObject)
         {
             var d = new Dictionary<string, string>();
-            foreach (var item in parameterObject.GetType().GetTypeInfo().DeclaredProperties)
+            foreach (var item in parameterObject?.GetType().GetTypeInfo().DeclaredProperties ?? Enumerable.Empty<PropertyInfo>())
             {
                 var t = item.PropertyType;
                 var v = item.GetValue(parameterObject);
                 if (v != null)
                 {
-                    if (t == typeof(string) || t == typeof(int?))
+                    if (t == typeof(string) || t == typeof(int?) || t == typeof(int))
                     {
                         d.Add(item.Name, item.GetValue(parameterObject).ToString());
                     }
@@ -66,6 +68,17 @@ namespace IPSClient
                             d.Add(item.Name, (0).ToString());
                         }
                     }
+                    else if (t == typeof(DateTime?))
+                    {
+                        if ((v as DateTime?).HasValue)
+                        {
+                            d.Add(item.Name, (v as DateTime?).Value.ToString());
+                        }
+                    }
+                    else if (t == typeof(object))
+                    {
+                        d.Add(item.Name, JsonConvert.SerializeObject(item.GetValue(parameterObject)));
+                    }
                     else
                     {
                         throw new NotSupportedException(string.Format("Unsupported property type: {0} on property {1}", t.Name, item.Name));
@@ -73,6 +86,32 @@ namespace IPSClient
                 }
             }
             return d;
+        }
+
+        internal MultipartFormDataContent BuildMultipart(object parameterObject)
+        {
+            var multipart = new MultipartFormDataContent();
+            foreach (var item in parameterObject.GetType().GetTypeInfo().DeclaredProperties)
+            {
+                var t = item.PropertyType;
+                var v = item.GetValue(parameterObject);
+                if (v != null)
+                {
+                    if (v is IDictionary<int, string>)
+                    {
+                        foreach (var subitem in v as IDictionary<int, string>)
+                        {
+                            multipart.Add(new StringContent(subitem.Value.ToString()), item.Name + $"[{subitem.Key}]");
+                        }
+                    }
+                    else
+                    {
+                        multipart.Add(new StringContent(v.ToString()), item.Name);
+                    }
+                }
+            }
+
+            return multipart;
         }
 
         /// <summary>
@@ -83,12 +122,8 @@ namespace IPSClient
         /// <param name="parameters">The request parameters, or null if there are no parameters</param>
         /// <param name="type">Type of the response</param>
         /// <returns></returns>
-        internal async Task<object> SendRequest(string endpoint, HttpMethod verb, Dictionary<string, string> parameters, Type type)
+        internal async Task<object> SendRequest(string endpoint, HttpMethod verb, object request, Type type)
         {
-            if (parameters == null)
-            {
-                parameters = new Dictionary<string, string>();
-            }
             using (var client = new HttpClient())
             {
                 var requestUrl = ApiUrl.TrimEnd('/') + "/" + endpoint.TrimStart('/');
@@ -98,11 +133,11 @@ namespace IPSClient
 
                 if (verb == HttpMethod.Get)
                 {
-                    response = await client.GetAsync(requestUrl + "?" + BuildParameterString(parameters)).ConfigureAwait(false);
+                    response = await client.GetAsync(requestUrl + "?" + BuildParameterString(BuildParameterDictionary(request))).ConfigureAwait(false);
                 }
                 else if (verb == HttpMethod.Post)
                 {
-                    response = await client.PostAsync(requestUrl, new StringContent(BuildParameterString(parameters))).ConfigureAwait(false);
+                    response = await client.PostAsync(requestUrl, BuildMultipart(request)).ConfigureAwait(false);                    
                 }
                 else if (verb == HttpMethod.Delete)
                 {
@@ -163,9 +198,9 @@ namespace IPSClient
         /// <param name="verb"></param>
         /// <param name="parameters">The request parameters, or null if there are no parameters</param>
         /// <returns></returns>
-        internal async Task<T> SendRequest<T>(string endpoint, HttpMethod verb, Dictionary<string, string> parameters) where T : class
+        internal async Task<T> SendRequest<T>(string endpoint, HttpMethod verb, object request) where T : class
         {
-            return await SendRequest(endpoint, verb, parameters, typeof(T)) as T;
+            return await SendRequest(endpoint, verb, request, typeof(T)) as T;
         }
 
         #region System
@@ -252,7 +287,7 @@ namespace IPSClient
             return await SendRequest<Member>(
                 $"core/members",
                 HttpMethod.Post,
-                BuildParameterDictionary(request));
+                request);
         }
 
         /// <summary>
@@ -268,7 +303,7 @@ namespace IPSClient
             return await SendRequest<Member>(
                 $"core/members/{memberID.ToString()}",
                 HttpMethod.Post,
-                BuildParameterDictionary(request));
+                request);
         }
 
         /// <summary>
@@ -333,7 +368,7 @@ namespace IPSClient
             return await SendRequest<File>(
                 $"downloads/files/{id.ToString()}",
                 HttpMethod.Get,
-                version.HasValue ? new Dictionary<string, string> { { "version", version.Value.ToString() } } : null);
+                version.HasValue ? new { version = version.Value.ToString() } : null);
         }
 
         #endregion
@@ -366,7 +401,7 @@ namespace IPSClient
             return await SendRequest<GetPageResponse>(
                 $"cms/records/{databaseId.ToString()}",
                 HttpMethod.Post,
-                null);
+                request);
         }
 
         public async Task<GetPageResponse> EditPage(int databaseId, int recordId, CreatePageRequest request)
@@ -374,7 +409,7 @@ namespace IPSClient
             return await SendRequest<GetPageResponse>(
                 $"cms/records/{databaseId.ToString()}/{recordId.ToString()}",
                 HttpMethod.Post,
-                null);
+                request);
         }
         #endregion
     }
