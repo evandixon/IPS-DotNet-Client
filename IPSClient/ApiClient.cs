@@ -458,6 +458,14 @@ namespace IPSClient
                 request);
         }
 
+        public async Task<Image> EditImage(int imageId, CreateImageRequest request)
+        {
+            return await SendRequest<Image>(
+                $"gallery/images/{imageId}",
+                HttpMethod.Post,
+                request);
+        }
+
         public async Task DeleteImage(int imageId)
         {
             await SendRequest<Image>(
