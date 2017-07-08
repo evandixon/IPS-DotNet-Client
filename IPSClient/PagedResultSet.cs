@@ -51,9 +51,16 @@ namespace IPSClient
             }
         }
 
-        private void RequestPage(int pageIndex)
+        private void RequestPage(int? pageIndex)
         {
-            _request.page = pageIndex + 1;
+            if (pageIndex.HasValue)
+            {
+                _request.page = pageIndex + 1;
+            }          
+            else
+            {
+                _request.page = null;
+            }
             var response = _client.SendRequest(_endpoint, _verb, _request, typeof(PagedResponse<T>)).Result as PagedResponse<T>;
 
             // Check to see if this is the first request

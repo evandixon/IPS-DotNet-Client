@@ -1,6 +1,7 @@
 ﻿using IPSClient.Objects;
 using IPSClient.Objects.Downloads;
 using IPSClient.Objects.Forums;
+using IPSClient.Objects.Gallery;
 using IPSClient.Objects.Pages;
 using IPSClient.Objects.System;
 using Newtonsoft.Json;
@@ -137,7 +138,7 @@ namespace IPSClient
                 }
                 else if (verb == HttpMethod.Post)
                 {
-                    response = await client.PostAsync(requestUrl, BuildMultipart(request)).ConfigureAwait(false);                    
+                    response = await client.PostAsync(requestUrl, BuildMultipart(request)).ConfigureAwait(false);
                 }
                 else if (verb == HttpMethod.Delete)
                 {
@@ -410,6 +411,59 @@ namespace IPSClient
                 $"cms/records/{databaseId.ToString()}/{recordId.ToString()}",
                 HttpMethod.Post,
                 request);
+        }
+        #endregion
+
+        #region Gallery
+
+        public PagedResultSet<Album> GetAlbums(GetAlbumsRequest request)
+        {
+            return new PagedResultSet<Album>(this, "gallery/albums", HttpMethod.Get, request);
+        }
+
+        public async Task<Album> GetAlbum(int albumId)
+        {
+            return await SendRequest<Album>(
+                $"gallery/albums/{albumId.ToString()}",
+                HttpMethod.Get,
+                null);
+        }
+
+        public PagedResultSet<Image> GetImages(GetImagesRequest request)
+        {
+            return new PagedResultSet<Image>(this, "gallery/images", HttpMethod.Get, request);
+        }
+
+        public async Task<Image> GetImage(int imageId)
+        {
+            return await SendRequest<Image>(
+                $"gallery/images/{imageId.ToString()}",
+                HttpMethod.Get,
+                null);
+        }
+
+        public async Task<Image> CreateImage(CreateImageRequest request)
+        {
+            return await SendRequest<Image>(
+                $"gallery/images",
+                HttpMethod.Post,
+                request);
+        }
+
+        public async Task<Image> EditImage(int imageId, EditImageRequest request)
+        {
+            return await SendRequest<Image>(
+                $"gallery/images/{imageId}",
+                HttpMethod.Post,
+                request);
+        }
+
+        public async Task DeleteImage(int imageId)
+        {
+            await SendRequest<Image>(
+                $"core/groups/{imageId.ToString()}",
+                HttpMethod.Delete,
+                null);
         }
         #endregion
     }
