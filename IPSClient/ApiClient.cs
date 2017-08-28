@@ -469,7 +469,7 @@ namespace IPSClient
         public async Task DeleteImage(int imageId)
         {
             await SendRequest<Image>(
-                $"core/groups/{imageId.ToString()}",
+                $"gallery/images/{imageId.ToString()}",
                 HttpMethod.Delete,
                 null);
         }
