@@ -11,8 +11,8 @@ namespace IPSConsole
     {
         static void Main(string[] args)
         {
-            var client = new ApiClient(args[0], args[1]);
-
+            //var client = new ApiClient(args[0], args[1]);
+            var client = new ApiClient("https://qa.projectpokemon.org/home/api", "9b21149ea5f7e2a4622908f0d76a54ff");
             // System
             var systemHello = client.Hello().Result;
             // System/Groups
