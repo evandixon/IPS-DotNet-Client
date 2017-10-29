@@ -178,8 +178,6 @@ namespace IPSClient
                             case "NO_PASSWORD":
                                 throw new NoPasswordException(exception);
                             case "NO_CATEGORY_OR_ALBUM":
-                                Console.WriteLine("NO_CATEGORY_OR_ALBUM exception. Request: ");
-                                Console.WriteLine(JsonConvert.SerializeObject(request));
                                 throw new ApiException(exception);
                             default:
                                 throw new ApiException(exception);
