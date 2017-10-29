@@ -27,6 +27,11 @@ namespace IPSClient
         private string ApiUrl { get; set; }
         private string ApiKey { get; set; }
 
+        /// <summary>
+        /// The timeout to use for HTTP requests. If the value is null, the <see cref="HttpClient"/>'s default timeout will be used.
+        /// </summary>
+        public TimeSpan? Timeout { get; set; }
+
         private string BuildParameterString(Dictionary<string, string> parameters)
         {
             var output = new StringBuilder();
@@ -127,6 +132,11 @@ namespace IPSClient
         {
             using (var client = new HttpClient())
             {
+                if (Timeout.HasValue)
+                {
+                    client.Timeout = Timeout.Value;
+                }                
+
                 var requestUrl = ApiUrl.TrimEnd('/') + "/" + endpoint.TrimStart('/');
                 client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(ApiKey)));
 
