@@ -11,10 +11,31 @@ namespace IPSConsole
     {
         static void Main(string[] args)
         {
+            var endpoint = args[0];
+            var key = args[1];
+            var action = args[2];
+
+            var client = new ApiClient(endpoint, key);
+
+            switch (action)
+            {
+                case "hello":
+                    var systemHello = client.Hello().Result;
+                    Console.WriteLine("Community name: " + systemHello.communityName);
+                    Console.WriteLine("Community url: " + systemHello.communityUrl);
+                    Console.WriteLine("IPS version: " + systemHello.ipsVersion);
+                    break;
+                case "file-create":
+                    throw new NotImplementedException();
+                    break;
+                default:
+                    Console.WriteLine("Unknown action " + action);
+                    break;
+            }
             //var client = new ApiClient(args[0], args[1]);
-            var client = new ApiClient("https://qa.projectpokemon.org/home/api", "9b21149ea5f7e2a4622908f0d76a54ff");
+            
             // System
-            var systemHello = client.Hello().Result;
+            
             // System/Groups
             //var allGroups = client.GetGroups().ToList();
 

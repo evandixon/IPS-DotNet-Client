@@ -110,6 +110,13 @@ namespace IPSClient
                             multipart.Add(new StringContent(subitem.Value.ToString()), item.Name + $"[{subitem.Key}]");
                         }
                     }
+                    if (v is IDictionary<string, string>)
+                    {
+                        foreach (var subitem in v as IDictionary<string, string>)
+                        {
+                            multipart.Add(new StringContent(subitem.Value.ToString()), item.Name + $"[{subitem.Key}]");
+                        }
+                    }
                     else
                     {
                         multipart.Add(new StringContent(v.ToString()), item.Name);
@@ -382,6 +389,22 @@ namespace IPSClient
                 $"downloads/files/{id.ToString()}",
                 HttpMethod.Get,
                 version.HasValue ? new { version = version.Value.ToString() } : null);
+        }
+
+        public async Task<File> CreateFile(CreateFileRequest request)
+        {
+            return await SendRequest<File>(
+                $"downloads/files",
+                HttpMethod.Post,
+                request);
+        }
+
+        public async Task<File> EditFile(int id, CreateFileRequest request)
+        {
+            return await SendRequest<File>(
+                $"downloads/files/{id.ToString()}",
+                HttpMethod.Post,
+                request);
         }
 
         #endregion
