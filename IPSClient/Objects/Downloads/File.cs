@@ -18,7 +18,7 @@ namespace IPSClient.Objects.Downloads
         public List<FilePart> files { get; set; }
         public List<FilePart> screenshots { get; set; }
         public FilePart primaryScreenshot { get; set; }
-        public int downloads { get; set; }
+        public int? downloads { get; set; }
         public int comments { get; set; }
         public int reviews { get; set; }
         public int views { get; set; }
