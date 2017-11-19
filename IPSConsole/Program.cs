@@ -59,9 +59,17 @@ namespace IPSConsole
                 case "file-update":
                     {
                         var fileId = args[3];
-                        var changelog = args[4];
+                        var version = args[4];
+                        var changelog = args[5];
                         var request = new NewFileVersionRequest();
-                        request.changelog = changelog;
+                        if (System.IO.File.Exists(changelog))
+                        {
+                            request.changelog = System.IO.File.ReadAllText(changelog);
+                        }
+                        else
+                        {
+                            request.changelog = changelog;
+                        }
                         for (int i = 5; i < args.Length; i++)
                         {
                             if (System.IO.File.Exists(args[i]))
