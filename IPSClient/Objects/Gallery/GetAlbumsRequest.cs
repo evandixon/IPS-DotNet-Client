@@ -14,7 +14,7 @@ namespace IPSClient.Objects.Gallery
         /// <summary>
         /// Comma-delimited list of member IDs - if provided, only albums owned by those members are returned
         /// </summary>
-        public string owneres { get; set; }
+        public string owners { get; set; }
 
         /// <summary>
         /// What to sort by. Can be 'name', 'count_images' for number of images, or do not specify for ID
