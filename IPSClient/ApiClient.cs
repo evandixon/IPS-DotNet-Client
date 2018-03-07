@@ -110,18 +110,25 @@ namespace IPSClient
                             multipart.Add(new StringContent(subitem.Value.ToString()), item.Name + $"[{subitem.Key}]");
                         }
                     }
-                    if (v is IDictionary<string, string>)
+                    else if (v is IDictionary<string, string>)
                     {
                         foreach (var subitem in v as IDictionary<string, string>)
                         {
                             multipart.Add(new StringContent(subitem.Value.ToString()), item.Name + $"[{subitem.Key}]");
                         }
                     }
-                    if (v is IDictionary<string, byte[]>)
+                    else if (v is IDictionary<string, byte[]>)
                     {
                         foreach (var subitem in v as IDictionary<string, byte[]>)
                         {
-                            multipart.Add(new ByteArrayContent(subitem.Value), item.Name + $"[{subitem.Key}]");
+                            var content = new ByteArrayContent(subitem.Value);
+                            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+                            multipart.Add(content, item.Name + $"[{subitem.Key}]");
+                            var data = content.ReadAsByteArrayAsync().Result;
+                            if (!subitem.Value.SequenceEqual(data))
+                            {
+                                throw new Exception();
+                            }
                         }
                     }
                     else
