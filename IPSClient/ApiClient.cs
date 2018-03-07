@@ -124,11 +124,6 @@ namespace IPSClient
                             var content = new ByteArrayContent(subitem.Value);
                             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
                             multipart.Add(content, item.Name + $"[{subitem.Key}]");
-                            var data = content.ReadAsByteArrayAsync().Result;
-                            if (!subitem.Value.SequenceEqual(data))
-                            {
-                                throw new Exception();
-                            }
                         }
                     }
                     else
