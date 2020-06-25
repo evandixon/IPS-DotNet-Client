@@ -5,23 +5,24 @@ using System.Linq;
 using IPSClient.Objects.Pages;
 using IPSClient.Objects.Downloads;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace IPSConsole
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var endpoint = args[0];
             var key = args[1];
             var action = args[2];
 
-            var client = new ApiClient(endpoint, key);
+            var client = new ApiClient(endpoint, key, timeout: TimeSpan.FromMinutes(10));
 
             switch (action)
             {
                 case "hello":
-                    var systemHello = client.Hello().Result;
+                    var systemHello = await client.Hello();
                     Console.WriteLine("Community name: " + systemHello.communityName);
                     Console.WriteLine("Community url: " + systemHello.communityUrl);
                     Console.WriteLine("IPS version: " + systemHello.ipsVersion);
@@ -34,11 +35,13 @@ namespace IPSConsole
                         var title = args[6];
                         var description = args[5];
 
-                        var request = new CreateFileRequest();
-                        request.category = int.Parse(categoryId);
-                        request.author = int.Parse(authorId);
-                        request.title = title;
-                        request.description = description;
+                        var request = new CreateFileRequest
+                        {
+                            category = int.Parse(categoryId),
+                            author = int.Parse(authorId),
+                            title = title,
+                            description = description
+                        };
                         for (int i = 7; i < args.Length; i++)
                         {
                             if (System.IO.File.Exists(args[i]))
@@ -53,7 +56,7 @@ namespace IPSConsole
                                 }
                             }
                         }
-                        client.CreateFile(request).Wait();
+                        await client.CreateFile(request);
                     }
                     break;
                 case "file-update":
@@ -62,8 +65,10 @@ namespace IPSConsole
                         var version = args[4];
                         var changelog = args[5];
 
-                        var request = new NewFileVersionRequest();
-                        request.version = version;
+                        var request = new NewFileVersionRequest
+                        {
+                            version = version
+                        };
                         if (System.IO.File.Exists(changelog))
                         {
                             request.changelog = System.IO.File.ReadAllText(changelog);
@@ -88,7 +93,7 @@ namespace IPSConsole
                             }                            
                         }
 
-                        client.CreateFileVersion(int.Parse(fileId), request).Wait();
+                        await client.CreateFileVersion(int.Parse(fileId), request);
                     }
                     break;
                 default:

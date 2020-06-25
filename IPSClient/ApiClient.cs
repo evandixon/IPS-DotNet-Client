@@ -18,19 +18,28 @@ namespace IPSClient
 {
     public class ApiClient
     {
-        public ApiClient(string apiUrl, string apiKey)
+        public ApiClient(string apiUrl, string apiKey, TimeSpan? timeout = null)
         {
+            if (string.IsNullOrEmpty(apiUrl))
+            {
+                throw new ArgumentNullException(nameof(apiUrl));
+            }
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                throw new ArgumentNullException(nameof(apiKey));
+            }
+
             ApiUrl = apiUrl;
-            ApiKey = apiKey;
+            HttpClient = new HttpClient();
+            HttpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(apiKey)));
+            if (timeout.HasValue)
+            {
+                HttpClient.Timeout = timeout.Value;
+            }
         }
 
-        private string ApiUrl { get; set; }
-        private string ApiKey { get; set; }
-
-        /// <summary>
-        /// The timeout to use for HTTP requests. If the value is null, the <see cref="HttpClient"/>'s default timeout will be used.
-        /// </summary>
-        public TimeSpan? Timeout { get; set; }
+        private HttpClient HttpClient { get; }
+        private string ApiUrl { get; }
 
         private string BuildParameterString(Dictionary<string, string> parameters)
         {
@@ -146,75 +155,66 @@ namespace IPSClient
         /// <returns></returns>
         internal async Task<object> SendRequest(string endpoint, HttpMethod verb, object request, Type type)
         {
-            using (var client = new HttpClient())
+            var requestUrl = ApiUrl.TrimEnd('/') + "/" + endpoint.TrimStart('/');
+
+            HttpResponseMessage response;
+
+            if (verb == HttpMethod.Get)
             {
-                if (Timeout.HasValue)
-                {
-                    client.Timeout = Timeout.Value;
-                }                
+                response = await HttpClient.GetAsync(requestUrl + "?" + BuildParameterString(BuildParameterDictionary(request))).ConfigureAwait(false);
+            }
+            else if (verb == HttpMethod.Post)
+            {
+                response = await HttpClient.PostAsync(requestUrl, BuildMultipart(request)).ConfigureAwait(false);
+            }
+            else if (verb == HttpMethod.Delete)
+            {
+                response = await HttpClient.DeleteAsync(requestUrl).ConfigureAwait(false);
+            }
+            else
+            {
+                throw new ArgumentException("Verb is not supported: " + verb.Method + ". Must be GET, POST, or DELETE.", nameof(verb));
+            }
 
-                var requestUrl = ApiUrl.TrimEnd('/') + "/" + endpoint.TrimStart('/');
-                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(ApiKey)));
-
-                HttpResponseMessage response;
-
-                if (verb == HttpMethod.Get)
+            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (response.IsSuccessStatusCode)
+            {
+                return JsonConvert.DeserializeObject(body, type);
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(body) && body[0] == '{')
                 {
-                    response = await client.GetAsync(requestUrl + "?" + BuildParameterString(BuildParameterDictionary(request))).ConfigureAwait(false);
-                }
-                else if (verb == HttpMethod.Post)
-                {
-                    response = await client.PostAsync(requestUrl, BuildMultipart(request)).ConfigureAwait(false);
-                }
-                else if (verb == HttpMethod.Delete)
-                {
-                    response = await client.DeleteAsync(requestUrl).ConfigureAwait(false);
+                    var exception = JsonConvert.DeserializeObject<ExceptionResponse>(body);
+                    switch (exception.errorMessage)
+                    {
+                        case "INVALID_ID":
+                            throw new InvalidIdException(exception);
+                        case "INVALID_DATABASE":
+                            throw new DatabaseNotFoundException(exception);
+                        case "INVALID_VERSION":
+                            throw new InvalidVersionException(exception);
+                        case "USERNAME_EXISTS":
+                            throw new UsernameExistsException(exception);
+                        case "EMAIL_EXISTS":
+                            throw new EmailExistsException(exception);
+                        case "INVALID_GROUP":
+                            throw new InvalidGroupException(exception);
+                        case "NO_USERNAME_OR_EMAIL":
+                            throw new NoUsernameOrEmailException(exception);
+                        case "NO_PASSWORD":
+                            throw new NoPasswordException(exception);
+                        case "NO_CATEGORY_OR_ALBUM":
+                            throw new ApiException(exception);
+                        default:
+                            throw new ApiException(exception);
+                    }
                 }
                 else
                 {
-                    throw new ArgumentException("Verb is not supported: " + verb.Method + ". Must be GET, POST, or DELETE.", nameof(verb));
-                }
-
-                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                if (response.IsSuccessStatusCode)
-                {
-                    return JsonConvert.DeserializeObject(body, type);
-                }
-                else
-                {
-                    if (!string.IsNullOrEmpty(body) && body[0] == '{')
-                    {
-                        var exception = JsonConvert.DeserializeObject<ExceptionResponse>(body);
-                        switch (exception.errorMessage)
-                        {
-                            case "INVALID_ID":
-                                throw new InvalidIdException(exception);
-                            case "INVALID_DATABASE":
-                                throw new DatabaseNotFoundException(exception);
-                            case "INVALID_VERSION":
-                                throw new InvalidVersionException(exception);
-                            case "USERNAME_EXISTS":
-                                throw new UsernameExistsException(exception);
-                            case "EMAIL_EXISTS":
-                                throw new EmailExistsException(exception);
-                            case "INVALID_GROUP":
-                                throw new InvalidGroupException(exception);
-                            case "NO_USERNAME_OR_EMAIL":
-                                throw new NoUsernameOrEmailException(exception);
-                            case "NO_PASSWORD":
-                                throw new NoPasswordException(exception);
-                            case "NO_CATEGORY_OR_ALBUM":
-                                throw new ApiException(exception);
-                            default:
-                                throw new ApiException(exception);
-                        }
-                    }
-                    else
-                    {
-                        // Could not read response as error object
-                        response.EnsureSuccessStatusCode();
-                        throw new Exception($"Api call failed with status code '{response.StatusCode}' and response.EnsureSuccessStatusCode should have thrown.");
-                    }
+                    // Could not read response as error object
+                    response.EnsureSuccessStatusCode();
+                    throw new Exception($"Api call failed with status code '{response.StatusCode}' and response.EnsureSuccessStatusCode should have thrown.");
                 }
             }
         }
@@ -260,7 +260,7 @@ namespace IPSClient
         public async Task<Group> GetGroup(int groupID)
         {
             return await SendRequest<Group>(
-                $"core/groups/{groupID.ToString()}",
+                $"core/groups/{groupID}",
                 HttpMethod.Get,
                 null);
         }
@@ -273,7 +273,7 @@ namespace IPSClient
         public async Task DeleteGroup(int groupId)
         {
             await SendRequest<Group>(
-                $"core/groups/{groupId.ToString()}",
+                $"core/groups/{groupId}",
                 HttpMethod.Delete,
                 null);
         }
@@ -297,7 +297,7 @@ namespace IPSClient
         public async Task<Member> GetMember(int memberID)
         {
             return await SendRequest<Member>(
-                $"core/members/{memberID.ToString()}",
+                $"core/members/{memberID}",
                 HttpMethod.Get,
                 null);
         }
@@ -330,7 +330,7 @@ namespace IPSClient
         public async Task<Member> EditMember(int memberID, CreateMemberRequest request)
         {
             return await SendRequest<Member>(
-                $"core/members/{memberID.ToString()}",
+                $"core/members/{memberID}",
                 HttpMethod.Post,
                 request);
         }
@@ -343,7 +343,7 @@ namespace IPSClient
         public async Task DeleteMember(int memberID)
         {
             await SendRequest<object>(
-                $"core/members/{memberID.ToString()}",
+                $"core/members/{memberID}",
                 HttpMethod.Delete,
                 null);
         }
@@ -371,7 +371,7 @@ namespace IPSClient
         public async Task<Category> GetDownloadCategory(int categoryId)
         {
             return await SendRequest<Category>(
-                $"downloads/category/{categoryId.ToString()}",
+                $"downloads/category/{categoryId}",
                 HttpMethod.Get,
                 null);
         }
@@ -395,7 +395,7 @@ namespace IPSClient
         public async Task<File> GetFile(int id, int? version = null)
         {
             return await SendRequest<File>(
-                $"downloads/files/{id.ToString()}",
+                $"downloads/files/{id}",
                 HttpMethod.Get,
                 version.HasValue ? new { version = version.Value.ToString() } : null);
         }
@@ -411,7 +411,7 @@ namespace IPSClient
         public async Task<File> EditFile(int id, CreateFileRequest request)
         {
             return await SendRequest<File>(
-                $"downloads/files/{id.ToString()}",
+                $"downloads/files/{id}",
                 HttpMethod.Post,
                 request);
         }
@@ -419,7 +419,7 @@ namespace IPSClient
         public async Task<File> CreateFileVersion(int fileId, NewFileVersionRequest request)
         {
             return await SendRequest<File>(
-                $"downloads/files/{fileId.ToString()}/history",
+                $"downloads/files/{fileId}/history",
                 HttpMethod.Post,
                 request);
         }
@@ -438,13 +438,13 @@ namespace IPSClient
         #region Pages
         public PagedResultSet<GetPageResponse> GetRecords(int databaseId, GetContentItemsRequest request)
         {
-            return new PagedResultSet<GetPageResponse>(this, $"cms/records/{databaseId.ToString()}", HttpMethod.Get, request);
+            return new PagedResultSet<GetPageResponse>(this, $"cms/records/{databaseId}", HttpMethod.Get, request);
         }
 
         public async Task<GetPageResponse> GetRecord(int databaseId, int recordId)
         {
             return await SendRequest<GetPageResponse>(
-                $"cms/records/{databaseId.ToString()}/{recordId.ToString()}",
+                $"cms/records/{databaseId}/{recordId}",
                 HttpMethod.Get,
                 null);
         }
@@ -452,7 +452,7 @@ namespace IPSClient
         public async Task<GetPageResponse> CreatePage(int databaseId, CreatePageRequest request)
         {
             return await SendRequest<GetPageResponse>(
-                $"cms/records/{databaseId.ToString()}",
+                $"cms/records/{databaseId}",
                 HttpMethod.Post,
                 request);
         }
@@ -460,7 +460,7 @@ namespace IPSClient
         public async Task<GetPageResponse> EditPage(int databaseId, int recordId, CreatePageRequest request)
         {
             return await SendRequest<GetPageResponse>(
-                $"cms/records/{databaseId.ToString()}/{recordId.ToString()}",
+                $"cms/records/{databaseId}/{recordId}",
                 HttpMethod.Post,
                 request);
         }
@@ -476,7 +476,7 @@ namespace IPSClient
         public async Task<Album> GetAlbum(int albumId)
         {
             return await SendRequest<Album>(
-                $"gallery/albums/{albumId.ToString()}",
+                $"gallery/albums/{albumId}",
                 HttpMethod.Get,
                 null);
         }
@@ -489,7 +489,7 @@ namespace IPSClient
         public async Task<Image> GetImage(int imageId)
         {
             return await SendRequest<Image>(
-                $"gallery/images/{imageId.ToString()}",
+                $"gallery/images/{imageId}",
                 HttpMethod.Get,
                 null);
         }
@@ -521,7 +521,7 @@ namespace IPSClient
         public async Task DeleteImage(int imageId)
         {
             await SendRequest<Image>(
-                $"gallery/images/{imageId.ToString()}",
+                $"gallery/images/{imageId}",
                 HttpMethod.Delete,
                 null);
         }
