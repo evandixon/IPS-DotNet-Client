@@ -19,9 +19,9 @@ namespace IPSClient.Objects.System
         public string photoUrl { get; set; }
         public bool validating { get; set; }
         public int posts { get; set; }
-        public DateTime lastActivity { get; set; }
-        public DateTime lastVisit { get; set; }
-        public DateTime lastPost { get; set; }
+        public DateTime? lastActivity { get; set; }
+        public DateTime? lastVisit { get; set; }
+        public DateTime? lastPost { get; set; }
         public int profileViews { get; set; }
         public string birthday { get; set; }
         /// <summary>
